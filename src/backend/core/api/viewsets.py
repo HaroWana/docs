@@ -32,6 +32,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.throttling import UserRateThrottle
 
 from core import authentication, enums, models
+from core.models import DocumentAccessRequest
 from core.services.ai_services import AIService
 from core.services.collaboration_services import CollaborationService
 from core.utils import extract_attachments, filter_descendants
@@ -441,6 +442,15 @@ class DocumentViewSet(
     list_serializer_class = serializers.ListDocumentSerializer
     trashbin_serializer_class = serializers.ListDocumentSerializer
     tree_serializer_class = serializers.ListDocumentSerializer
+
+    def get_permissions(self):
+        """User only needs to be authenticated to request document access"""
+        if self.action in ["request_access", "has_requested_access"]:
+            permission_classes = [permissions.IsAuthenticated]
+        else:
+            return super().get_permissions()
+
+        return [permission() for permission in permission_classes]
 
     def annotate_is_favorite(self, queryset):
         """
@@ -1465,6 +1475,55 @@ class DocumentViewSet(
                 {"error": f"Failed to fetch resource: {e!s}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+    @drf.decorators.action(
+        detail=True, methods=["post"], name="", url_path="request-access"
+    )
+    def request_access(self, request, *args, **kwargs):
+        """
+        POST /api/v1.0/documents/<resource_id>/request-access
+
+        Handles a POST request for document access by creating a new request if none exists and notifying document admins.
+        """
+        document = self.get_object()
+        requester = request.user
+
+        _, created = DocumentAccessRequest.objects.get_or_create(
+            document=document, user=requester, defaults={"status": "pending"}
+        )
+
+        if not created:
+            return drf_response.Response(
+                {"success": False, "message": "Request already exists."},
+                status=status.HTTP_200_OK,
+            )
+
+        try:
+            document.send_access_request_email(requester)
+        except requests.RequestException as e:
+            return drf_response.Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return drf_response.Response({"success": True}, status=status.HTTP_201_CREATED)
+
+    @drf.decorators.action(
+        detail=True, methods=["get"], name="", url_path="has-requested-access"
+    )
+    def has_requested_access(self, request, *args, **kwargs):
+        """
+        GET /api/v1.0/documents/<resource_id>/has-requested-access
+
+        Checks if current user has requested access to the document.
+        """
+        document = self.get_object()
+        user = request.user
+
+        exists = DocumentAccessRequest.objects.filter(
+            document=document, user=user, status="pending"
+        ).exists()
+
+        return drf_response.Response({"has_requested": exists})
 
 
 class DocumentAccessViewSet(

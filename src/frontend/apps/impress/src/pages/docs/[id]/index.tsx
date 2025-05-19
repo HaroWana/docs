@@ -15,6 +15,7 @@ import {
   useDocStore,
 } from '@/docs/doc-management/';
 import { KEY_AUTH, setAuthUrl } from '@/features/auth';
+import { useGrantAccess } from '@/hook/useGrantAccess';
 import { MainLayout } from '@/layouts';
 import { useBroadcastStore } from '@/stores';
 import { NextPageWithLayout } from '@/types/next';
@@ -67,6 +68,8 @@ const DocPage = ({ id }: DocProps) => {
   useCollaboration(doc?.id, doc?.content);
   const { t } = useTranslation();
 
+  useGrantAccess(id);
+
   useEffect(() => {
     if (!docQuery || isFetching) {
       return;
@@ -94,7 +97,7 @@ const DocPage = ({ id }: DocProps) => {
 
   if (isError && error) {
     if (error.status === 403) {
-      void replace(`/403`);
+      void replace(`/403?doc=${id}`);
       return null;
     }
 

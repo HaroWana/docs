@@ -870,6 +870,7 @@ class Document(MP_Node, BaseModel):
                 "document": self,
                 "domain": domain,
                 "link": f"{domain}/docs/{self.id}/",
+                "button_link": f"{domain}/docs/{self.id}/{context.get('button_link')}",
                 "document_title": self.title or str(_("Untitled Document")),
                 "logo_img": settings.EMAIL_LOGO_IMG,
             }
@@ -911,6 +912,8 @@ class Document(MP_Node, BaseModel):
                 "message": _(
                     '{name} invited you with the role "{role}" on the following document:'
                 ).format(name=sender_name_email, role=role.lower()),
+                "button_text": "Open",
+                "button_link": "",
             }
             subject = (
                 context["title"]
@@ -921,6 +924,51 @@ class Document(MP_Node, BaseModel):
             )
 
         self.send_email(subject, [email], context, language)
+
+    def send_access_request_email(self, requester, language=None):
+        """
+        Send an email to the document owner and all admins notifying them of an access request.
+        """
+        language = language or get_language()
+        requester_name = requester.full_name or requester.email
+        requester_email = requester.email
+
+        # Build context and subject
+        with override(language):
+            context = {
+                "title": _("{name} asked for access on {title}").format(
+                    name=requester_name, title=self.title
+                ),
+                "message": _(
+                    "{name} ({email}) requested access on the following document:"
+                ).format(
+                    name=requester_name,
+                    email=requester_email,
+                    path=self.path,
+                    title=self.title,
+                ),
+                "button_link": f"?grant={requester.id}",
+                "button_text": "Grant access",
+            }
+            subject = (
+                context["title"]
+                if not self.title
+                else _("{name} requested access to your document: {title}").format(
+                    name=requester_name,
+                    title=self.title,
+                )
+            )
+
+        admin_emails = (
+            DocumentAccess.objects.filter(
+                document=self, role__in=[RoleChoices.ADMIN, RoleChoices.OWNER]
+            )
+            .select_related("user")
+            .values_list("user__email", flat=True)
+        )
+        recipients = list(admin_emails)
+
+        self.send_email(subject, recipients, context, language)
 
     @transaction.atomic
     def soft_delete(self):
@@ -1147,6 +1195,43 @@ class DocumentAccess(BaseAccess):
             "retrieve": self.user and self.user.id == user.id or is_owner_or_admin,
             "set_role_to": set_role_to,
         }
+
+
+class DocumentAccessRequest(BaseModel):
+    """Track access requests made by users for documents."""
+
+    document = models.ForeignKey(
+        Document,
+        on_delete=models.CASCADE,
+        related_name="access_request",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="document_access_requests",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=[("pending", _("Pending")), ("cancelled", _("Cancelled"))],
+        default="pending",
+    )
+
+    class Meta:
+        db_table = "impress_document_access_request"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["document", "user"],
+                name="unique_document_access_request_user",
+                violation_error_message=_(
+                    "You have already requested access to this document."
+                ),
+            )
+        ]
+        verbose_name = _("Document access request")
+        verbose_name_plural = _("Document access requests")
+
+    def __str__(self):
+        return f"{self.user} requested access to {self.document}"
 
 
 class Template(BaseModel):

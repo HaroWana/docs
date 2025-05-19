@@ -25,12 +25,12 @@
             <a href="{{link}}">{{document_title}}</a>
           </mj-text>
           <mj-button
-            href="{{link}}"
+            href="{{button_link}}"
             background-color="#000091"
             color="white"
             padding-bottom="30px"
           >
-            {% trans "Open"%}
+            {{button_text}}
           </mj-button>
           <mj-divider
             border-width="1px"
