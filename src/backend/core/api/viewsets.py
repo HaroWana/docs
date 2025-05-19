@@ -442,6 +442,15 @@ class DocumentViewSet(
     trashbin_serializer_class = serializers.ListDocumentSerializer
     tree_serializer_class = serializers.ListDocumentSerializer
 
+    def get_permissions(self):
+        """User only needs to be authenticated to request document access"""
+        if self.action == "request_access" or self.action == "has_requested_access":
+            permission_classes = [permissions.IsAuthenticated]
+        else:
+            return super().get_permissions()
+
+        return [permission() for permission in permission_classes]
+
     def annotate_is_favorite(self, queryset):
         """
         Annotate document queryset with the favorite status for the current user.
@@ -1465,6 +1474,90 @@ class DocumentViewSet(
                 {"error": f"Failed to fetch resource: {e!s}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+        
+    
+    @drf.decorators.action(
+        detail=True,
+        methods=["post"],
+        name="",
+        url_path="request-access"
+    )
+    def request_access(self, request, *args, **kwargs):
+        document = self.get_object()
+        requester = request.user
+    
+        from core.models import DocumentAccessRequest
+
+        _, created = DocumentAccessRequest.objects.get_or_create(
+            document=document, user=requester, defaults={"status": "pending"}
+        )
+
+        if not created:
+            return drf_response.Response(
+                {"success": False, "message": "Request already exists."},
+                status=status.HTTP_200_OK,
+            )
+
+        try:
+            document.send_access_request_email(requester)
+        except Exception as e:
+            return drf_response.Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return drf_response.Response({"success": True}, status=status.HTTP_201_CREATED)
+    
+    @drf.decorators.action(
+        detail=True,
+        methods=["get"],
+        name="",
+        url_path="has-requested-access")
+    def has_requested_access(self, request, *args, **kwargs):
+        document = self.get_object()
+        user = request.user
+
+        from core.models import DocumentAccessRequest
+
+        exists = DocumentAccessRequest.objects.filter(
+            document=document, user=user, status="pending"
+        ).exists()
+
+        return drf_response.Response({"has_requested": exists})
+    
+    @drf.decorators.action(
+        detail=True,
+        methods=["get"],
+        url_path="grant-access/(?P<user_id>[0-9a-f-]+)")
+    def grant_access(self, request, pk=None, user_id=None, *args, **kwargs):
+        document = self.get_object()
+        serializer_class = serializers.DocumentAccessSerializer
+        # if not request.user.has_perm("can_share", document):
+        #     return drf_response.Response(status=403)
+
+        if not models.DocumentAccess.objects.filter(document=document, user_id=user_id).exists():
+            try:
+                serializer = serializer_class(
+                    data={
+                        "document": str(document.id),
+                        "user": str(user_id),
+                        "role": models.RoleChoices.READER,
+                    },
+                    context={"request": request}
+                )
+                serializer.is_valid(raise_exception=True)
+
+                viewset = DocumentAccessViewSet()
+                viewset.request = request
+                viewset.perform_create(serializer)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                return drf_response.Response({"error": str(e)}, status=403)
+
+        return drf_response.Response(
+            status=303,
+            headers={"Location": f"/docs/{document.id}/?modal=sharing"},
+        )
 
 
 class DocumentAccessViewSet(

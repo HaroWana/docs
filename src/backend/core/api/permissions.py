@@ -122,6 +122,10 @@ class DocumentAccessPermission(AccessPermission):
         - for which the trashbin cutoff is past
         - for which the current user is not owner of the document or one of its ancestors
         """
+        # Ensure user_roles is set
+        if not hasattr(obj, "user_roles"):
+            obj.user_roles = obj.get_roles(request.user)
+
         if (
             deleted_at := obj.ancestors_deleted_at
         ) and deleted_at < get_trashbin_cutoff():
@@ -130,7 +134,7 @@ class DocumentAccessPermission(AccessPermission):
         # Compute permission first to ensure the "user_roles" attribute is set
         has_permission = super().has_object_permission(request, view, obj)
 
-        if obj.ancestors_deleted_at and not RoleChoices.OWNER in obj.user_roles:
+        if obj.ancestors_deleted_at and RoleChoices.OWNER not in obj.user_roles:
             raise Http404
 
         return has_permission
