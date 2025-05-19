@@ -1,12 +1,15 @@
 import { Button } from '@openfun/cunningham-react';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import img403 from '@/assets/icons/icon-403.png';
 import { Box, Icon, StyledLink, Text } from '@/components';
+import { useAccessRequestStatus } from '@/hook/useAccessRequestStatus';
 import { PageLayout } from '@/layouts';
+import { requestDocumentAccess } from '@/services';
 import { NextPageWithLayout } from '@/types/next';
 
 const StyledButton = styled(Button)`
@@ -15,6 +18,27 @@ const StyledButton = styled(Button)`
 
 const Page: NextPageWithLayout = () => {
   const { t } = useTranslation();
+  const searchParams = useSearchParams();
+  const documentId = searchParams.get('doc');
+  const { data: hasRequested } = useAccessRequestStatus(documentId);
+
+  const handleRequestAccess = () => {
+    if (!documentId) {
+      // add error handling
+      console.error('No document ID found in URL');
+      return;
+    }
+
+    void (async () => {
+      try {
+        await requestDocumentAccess(documentId);
+        console.log(`Access request sent for document #${documentId}`);
+      } catch (err) {
+        console.error(err);
+        console.error('Failed to send access request');
+      }
+    })();
+  };
 
   return (
     <Box
@@ -42,6 +66,21 @@ const Page: NextPageWithLayout = () => {
             {t('Home')}
           </StyledButton>
         </StyledLink>
+        {hasRequested ? (
+          <StyledButton
+            disabled
+            icon={<Icon iconName="house" $color="white" />}
+          >
+            Access request already sent
+          </StyledButton>
+        ) : (
+          <StyledButton
+            icon={<Icon iconName="house" $color="white" />}
+            onClick={handleRequestAccess}
+          >
+            {t('Request document access')}
+          </StyledButton>
+        )}
       </Box>
     </Box>
   );

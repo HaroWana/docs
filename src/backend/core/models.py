@@ -1146,6 +1146,39 @@ class DocumentAccess(BaseAccess):
             "retrieve": self.user and self.user.id == user.id or is_owner_or_admin,
             "set_role_to": set_role_to,
         }
+    
+class DocumentAccessRequest(BaseModel):
+    """Track access requests made by users for documents."""
+    document = models.ForeignKey(
+        Document,
+        on_delete=models.CASCADE,
+        related_name="access_request",
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="document_access_requests",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=[("pending", _("Pending")), ("cancelled", _("Cancelled"))],
+        default="pending",
+    )
+
+    class Meta:
+        db_table = "impress_document_access_request"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["document", "user"],
+                name="unique_document_access_request_user",
+                violation_error_message=_("You have already requested access to this document."),
+            )
+        ]
+        verbose_name = _("Document access request")
+        verbose_name_plural = _("Document access requests")
+
+    def __str__(self):
+        return f"{self.user} requested access to {self.document}"
 
 
 class Template(BaseModel):

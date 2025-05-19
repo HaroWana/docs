@@ -441,6 +441,15 @@ class DocumentViewSet(
     trashbin_serializer_class = serializers.ListDocumentSerializer
     tree_serializer_class = serializers.ListDocumentSerializer
 
+    def get_permissions(self):
+        """User only needs to be authenticated to request document access"""
+        if self.action == "request_access":
+            permission_classes = [permissions.IsAuthenticated]
+        else:
+            return super().get_permissions()
+
+        return [permission() for permission in permission_classes]
+
     def annotate_is_favorite(self, queryset):
         """
         Annotate document queryset with the favorite status for the current user.
@@ -1409,6 +1418,65 @@ class DocumentViewSet(
                 {"error": f"Failed to fetch resource: {e!s}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+        
+    
+    @drf.decorators.action(
+        detail=True,
+        methods=["post"],
+        name="",
+        url_path="request-access"
+    )
+    def request_access(self, request, *args, **kwargs):
+        document = self.get_object()
+        requester = request.user
+        owner = document.creator
+
+        if not owner:
+            return drf_response.Response(
+                {"error": "Document has no owner to notify."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    
+        from core.models import DocumentAccessRequest
+
+        obj, created = DocumentAccessRequest.objects.get_or_create(
+            document=document, user=requester, defaults={"status": "pending"}
+        )
+
+        if not created:
+            return drf_response.Response(
+                {"success": False, "message": "Request already exists."},
+                status=status.HTTP_200_OK,
+            )
+
+        subject = f"Access request for your document: {document.title or 'Untitled'}"
+        message = f"{requester.full_name} ({requester.email}) is requesting access to your document."
+
+        try:
+            owner.email_user(subject, message, from_email="noreply@docs.com")
+        except Exception as e:
+            return drf_response.Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return drf_response.Response({"success": True}, status=status.HTTP_201_CREATED)
+    
+    @drf.decorators.action(
+        detail=True,
+        methods=["get"],
+        name="",
+        url_path="has-requested-access")
+    def has_requested_access(self, request, *args, **kwargs):
+        document = self.get_object()
+        user = request.user
+
+        from core.models import DocumentAccessRequest
+
+        exists = DocumentAccessRequest.objects.filter(
+            document=document, user=user, status="pending"
+        ).exists()
+
+        return drf_response.Response({"has_requested": exists})
 
 
 class DocumentAccessViewSet(

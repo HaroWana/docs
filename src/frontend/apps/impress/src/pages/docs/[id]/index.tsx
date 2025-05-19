@@ -102,7 +102,7 @@ const DocPage = ({ id }: DocProps) => {
 
   if (isError && error) {
     if (error.status === 403) {
-      void replace(`/403`);
+      void replace(`/403?doc=${id}`);
       return null;
     }
 
