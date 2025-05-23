@@ -413,6 +413,11 @@ class Base(Configuration):
     COLLABORATION_WS_URL = values.Value(
         None, environ_name="COLLABORATION_WS_URL", environ_prefix=None
     )
+    COLLABORATION_WS_NOT_CONNECTED_READY_ONLY = values.BooleanValue(
+        False,
+        environ_name="COLLABORATION_WS_NOT_CONNECTED_READY_ONLY",
+        environ_prefix=None,
+    )
 
     # Frontend
     FRONTEND_THEME = values.Value(
@@ -462,7 +467,9 @@ class Base(Configuration):
     # Session
     SESSION_ENGINE = "django.contrib.sessions.backends.cache"
     SESSION_CACHE_ALIAS = "default"
-    SESSION_COOKIE_AGE = 60 * 60 * 12
+    SESSION_COOKIE_AGE = values.PositiveIntegerValue(
+        default=60 * 60 * 12, environ_name="SESSION_COOKIE_AGE", environ_prefix=None
+    )
 
     # OIDC - Authorization Code Flow
     OIDC_CREATE_USER = values.BooleanValue(
@@ -673,6 +680,15 @@ class Base(Configuration):
                 "level": values.Value(
                     "INFO",
                     environ_name="LOGGING_LEVEL_LOGGERS_APP",
+                    environ_prefix=None,
+                ),
+                "propagate": False,
+            },
+            "docs.security": {
+                "handlers": ["console"],
+                "level": values.Value(
+                    "INFO",
+                    environ_name="LOGGING_LEVEL_LOGGERS_SECURITY",
                     environ_prefix=None,
                 ),
                 "propagate": False,

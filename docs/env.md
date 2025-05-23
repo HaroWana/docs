@@ -39,7 +39,7 @@ These are the environment variables you can set for the `impress-backend` contai
 | DJANGO_EMAIL_PORT                               | port used to connect to email host                                                            |                                                         |
 | DJANGO_EMAIL_USE_TLS                            | use tls for email host connection                                                             | false                                                   |
 | DJANGO_EMAIL_USE_SSL                            | use sstl for email host connection                                                            | false                                                   |
-| DJANGO_EMAIL_FROM                               | email address used as sender                                                                   | from@example.com                                        |
+| DJANGO_EMAIL_FROM                               | email address used as sender                                                                  | from@example.com                                        |
 | DJANGO_CORS_ALLOW_ALL_ORIGINS                   | allow all CORS origins                                                                        | true                                                    |
 | DJANGO_CORS_ALLOWED_ORIGINS                     | list of origins allowed for CORS                                                              | []                                                      |
 | DJANGO_CORS_ALLOWED_ORIGIN_REGEXES              | list of origins allowed for CORS using regulair expressions                                   | []                                                      |
@@ -47,6 +47,7 @@ These are the environment variables you can set for the `impress-backend` contai
 | COLLABORATION_API_URL                           | collaboration api host                                                                        |                                                         |
 | COLLABORATION_SERVER_SECRET                     | collaboration api secret                                                                      |                                                         |
 | COLLABORATION_WS_URL                            | collaboration websocket url                                                                   |                                                         |
+| COLLABORATION_WS_NOT_CONNECTED_READY_ONLY           | Users not connected to the collaboration server cannot edit                                   | false                                                   |
 | FRONTEND_CSS_URL                                | To add a external css file to the app                                                         |                                                         |
 | FRONTEND_HOMEPAGE_FEATURE_ENABLED               | frontend feature flag to display the homepage                                                 | false                                                   |
 | FRONTEND_THEME                                  | frontend theme to use                                                                         |                                                         |
@@ -54,12 +55,13 @@ These are the environment variables you can set for the `impress-backend` contai
 | CRISP_WEBSITE_ID                                | crisp website id for support                                                                  |                                                         |
 | DJANGO_CELERY_BROKER_URL                        | celery broker url                                                                             | redis://redis:6379/0                                    |
 | DJANGO_CELERY_BROKER_TRANSPORT_OPTIONS          | celery broker transport options                                                               | {}                                                      |
+| SESSION_COOKIE_AGE                              | duration of the cookie session                                                                | 60*60*12                                                |
 | OIDC_CREATE_USER                                | create used on OIDC                                                                           | false                                                   |
 | OIDC_RP_SIGN_ALGO                               | verification algorithm used OIDC tokens                                                       | RS256                                                   |
 | OIDC_RP_CLIENT_ID                               | client id used for OIDC                                                                       | impress                                                 |
 | OIDC_RP_CLIENT_SECRET                           | client secret used for OIDC                                                                   |                                                         |
 | OIDC_OP_JWKS_ENDPOINT                           | JWKS endpoint for OIDC                                                                        |                                                         |
-| OIDC_OP_AUTHORIZATION_ENDPOINT                  | Authorization endpoint for OIDC                                                                |                                                         |
+| OIDC_OP_AUTHORIZATION_ENDPOINT                  | Authorization endpoint for OIDC                                                               |                                                         |
 | OIDC_OP_TOKEN_ENDPOINT                          | Token endpoint for OIDC                                                                       |                                                         |
 | OIDC_OP_USER_ENDPOINT                           | User endpoint for OIDC                                                                        |                                                         |
 | OIDC_OP_LOGOUT_ENDPOINT                         | Logout endpoint for OIDC                                                                      |                                                         |
@@ -73,7 +75,7 @@ These are the environment variables you can set for the `impress-backend` contai
 | OIDC_REDIRECT_ALLOWED_HOSTS                     | Allowed hosts for OIDC redirect url                                                           | []                                                      |
 | OIDC_STORE_ID_TOKEN                             | Store OIDC token                                                                              | true                                                    |
 | OIDC_FALLBACK_TO_EMAIL_FOR_IDENTIFICATION       | faillback to email for identification                                                         | true                                                    |
-| OIDC_ALLOW_DUPLICATE_EMAILS                     | Allow duplicate emails                                                                       | false                                                   |
+| OIDC_ALLOW_DUPLICATE_EMAILS                     | Allow duplicate emails                                                                        | false                                                   |
 | USER_OIDC_ESSENTIAL_CLAIMS                      | essential claims in OIDC token                                                                | []                                                      |
 | OIDC_USERINFO_FULLNAME_FIELDS                   | OIDC token claims to create full name                                                         | ["first_name", "last_name"]                             |
 | OIDC_USERINFO_SHORTNAME_FIELD                   | OIDC token claims to create shortname                                                         | first_name                                              |
@@ -106,8 +108,36 @@ These are the environment variables you can set for the `impress-backend` contai
 
 These are the environment variables you can set to build the `impress-frontend` image.
 
+Depending on how you are building the front-end application, this variable is used in different ways.
+
+If you want to build the Docker image, this variable is used as an argument in the build command.
+
+Example:
+
+```
+docker build -f src/frontend/Dockerfile --target frontend-production --build-arg PUBLISH_AS_MIT=false docs-frontend:latest
+``` 
+
+If you want to build the front-end application using the yarn build command, you can edit the file `src/frontend/apps/impress/.env` with the `NODE_ENV=production` environment variable and modify it. Alternatively, you can use the listed environment variables with the prefix `NEXT_PUBLIC_` (for example, `NEXT_PUBLIC_PUBLISH_AS_MIT=false`).
+
+Example:
+
+```
+cd src/frontend/apps/impress
+NODE_ENV=production NEXT_PUBLIC_PUBLISH_AS_MIT=false yarn build
+```
+
 | Option                                          | Description                                                                                   | default                                                 |
 | ----------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | API_ORIGIN                                      | backend domain - it uses the current domain if not initialized                                |                                                         |
 | SW_DEACTIVATED                                  | To not install the service worker                                                             |                                                         |
-| PUBLISH_AS_MIT                                  | MIT licence does not include the export feature                                               | true                                                    |
+| PUBLISH_AS_MIT                                  | Removes packages whose licences are incompatible with the MIT licence (see  below)                                               | true                                                    |
+
+Packages with licences incompatible with the MIT licence:
+* `xl-docx-exporter`: [AGPL-3.0](https://github.com/TypeCellOS/BlockNote/blob/main/packages/xl-docx-exporter/LICENSE), 
+* `xl-pdf-exporter`: [AGPL-3.0](https://github.com/TypeCellOS/BlockNote/blob/main/packages/xl-pdf-exporter/LICENSE) 
+
+In `.env.development`, `PUBLISH_AS_MIT` is set to `false`, allowing developers to test Docs with all its features.
+
+⚠️ If you run Docs in production with `PUBLISH_AS_MIT` set to `false` make sure you fulfill your [BlockNote licensing](https://github.com/TypeCellOS/BlockNote/blob/main/packages/xl-pdf-exporter/LICENSE) or [subscription](https://www.blocknotejs.org/about#partner-with-us) obligations.
+

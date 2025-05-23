@@ -1,6 +1,6 @@
 {
   "name": "server-y-provider",
-  "version": "3.2.1",
+  "version": "3.3.0",
   "description": "Y.js provider for docs",
   "repository": "https://github.com/numerique-gouv/impress",
   "license": "MIT",
@@ -16,7 +16,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@blocknote/server-util": "0.30.0",
+    "@blocknote/server-util": "0.30.1",
     "@hocuspocus/server": "2.15.2",
     "@sentry/node": "9.19.0",
     "@sentry/profiling-node": "9.19.0",

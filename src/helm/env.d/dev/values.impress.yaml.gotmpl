@@ -50,8 +50,6 @@ backend:
     DB_USER: dinum
     DB_PASSWORD: pass
     DB_PORT: 5432
-    FRONTEND_FOOTER_FEATURE_ENABLED: true
-    FRONTEND_URL_JSON_FOOTER: https://impress.127.0.0.1.nip.io/contents/footer-demo.json
     POSTGRES_DB: impress
     POSTGRES_USER: dinum
     POSTGRES_PASSWORD: pass
@@ -96,7 +94,7 @@ backend:
   # Extra volume mounts to manage our local custom CA and avoid to set ssl_verify: false
   extraVolumeMounts:
     - name: certs
-      mountPath: /usr/local/lib/python3.12/site-packages/certifi/cacert.pem
+      mountPath: /usr/local/lib/python3.13/site-packages/certifi/cacert.pem
       subPath: cacert.pem
 
   # Extra volumes to manage our local custom CA and avoid to set ssl_verify: false

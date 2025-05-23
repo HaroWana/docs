@@ -21,7 +21,13 @@ import { logger } from '../utils';
  */
 export const initServer = () => {
   const { app } = expressWebsockets(express());
-  app.use(express.json());
+  app.use((req, res, next) => {
+    if (req.path === routes.CONVERT_MARKDOWN) {
+      // Large transcript files are bigger than the default '100kb' limit
+      return express.json({ limit: '500kb' })(req, res, next);
+    }
+    express.json()(req, res, next);
+  });
   app.use(corsMiddleware);
 
   /**
